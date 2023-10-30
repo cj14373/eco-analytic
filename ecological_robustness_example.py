@@ -42,7 +42,8 @@ descendTargSurvival = eco.targeted_extinctions(simpleGraph,primarySpecies,second
 
 #plots targeted extinctions, similar to Figure 4
 plt.figure()
-plt.plot(survivalXSpecies,ascendTargSurvival,markersize=0,linewidth=2,label = 'Low to high removal')
+plt.plot(survivalXSpecies,randomSurvival,markersize=0,linewidth=2,label = 'random Removal')
+plt.plot(survivalXSpecies,ascendTargSurvival,markersize=0,linewidth=2,color='green',label = 'Low to high removal')
 plt.plot(survivalXSpecies,descendTargSurvival,markersize=0,linewidth=2,color = 'orange',label = 'High to low removal')
 plt.xlim(0,1)
 plt.ylim(0,1.01)
@@ -50,15 +51,18 @@ plt.legend(loc='lower left')
 plt.xlabel(r'$\frac{\varphi}{N_p}$',fontsize=16)
 plt.ylabel('P(survive)',fontsize=12)
 
-#predicts random extinctions on the network with 100 false positive and 100 false negative edges
-falsePositiveSurvival = eco.random_extinctions(simpleGraph,primarySpecies,secondarySpecies,sensitivityRatio = 1,falsePositives = True, falseEdges = 100)
-falseNegativeSurvival = eco.random_extinctions(simpleGraph,primarySpecies,secondarySpecies,sensitivityRatio = 1,falseNegatives = True, falseEdges = 100)
+#predicts random extinctions on the network with 20% false negative and 20% false positive edges occuring alone and simultaneously
+falseEdges = round(0.2*simpleGraph.number_of_edges())
+falseNegativeSurvival = eco.random_extinctions(simpleGraph,primarySpecies,secondarySpecies,sensitivityRatio = 1,falseNegatives = falseEdges)
+falsePositiveSurvival = eco.random_extinctions(simpleGraph,primarySpecies,secondarySpecies,sensitivityRatio = 1,falsePositives = falseEdges)
+falseNegPosSurvival = eco.random_extinctions(simpleGraph,primarySpecies,secondarySpecies,sensitivityRatio = 1,falseNegatives = falseEdges,falsePositives = falseEdges)
 
 #plots predictions for the original network and the network with false positives and negatives, similar to Figure 8(a)
 plt.figure()
 plt.plot(survivalXSpecies,randomSurvival,markersize=0,linewidth=2, label = 'Original Network')
-plt.plot(survivalXSpecies,falsePositiveSurvival,markersize=0,linewidth=2,color = 'orange',label = '100 False Positive Edges')
-plt.plot(survivalXSpecies,falseNegativeSurvival,markersize=0,linewidth=2,color = 'green',label = '100 False Negative Edges')
+plt.plot(survivalXSpecies,falseNegativeSurvival,markersize=0,linewidth=2,color = 'green',label = '20% False Negative Edges')
+plt.plot(survivalXSpecies,falsePositiveSurvival,markersize=0,linewidth=2,color = 'orange',label = '20% False Positive Edges')
+plt.plot(survivalXSpecies,falseNegPosSurvival,markersize=0,linewidth=2,color = 'purple',label = '20% False Negative and Positive Edges')
 plt.xlim(0,1)
 plt.ylim(0,1.01)
 plt.legend(loc='lower left')
