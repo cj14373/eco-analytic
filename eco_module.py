@@ -41,21 +41,43 @@ def graph_maker(directory,filename,multiEdges = False):
 
     return graph,primarySpecies,secondarySpecies
 
-#predicts random extinctions, and can include false positives or negatives, and can also calculate extinctions via interaction loss
-def random_extinctions(graph,primarySpecies,secondarySpecies,sensitivityRatio,falsePositives = False,falseNegatives = False, falseEdges = 0):
-        
+#predicts random extinctions, can include false positives or negatives
+def random_extinctions(graph,primarySpecies,secondarySpecies,sensitivityRatio,falseNegatives = 0,falsePositives = 0):
+    
+    if falseNegatives < 0 or falsePositives < 0:
+        exit('Error: negative values of false edges is not supported')
+
     #measures the degree sequence and degree distribution of the secondary species
     secondaryDegreeSeq = [graph.degree(secondary) for secondary in secondarySpecies]
     degreeDist = [secondaryDegreeSeq.count(k)/len(secondarySpecies) for k in range(max(secondaryDegreeSeq)+1)]
     
-    #includes false positives or negatives if specified
-    if falsePositives == True and falseNegatives == True:
-        exit('Error: Inclusion of both false positives and false negatives is not supported')
-    elif falsePositives == True:
-        degreeDist = false_positives(graph,primarySpecies,secondarySpecies,falseEdges)
-    elif falseNegatives == True:
-        degreeDist = false_negatives(graph,primarySpecies,secondarySpecies,falseEdges)
+    #alters the degree distribution if false negatives or positives are included
+    if falseNegatives > 0 or falsePositives > 0:
+        
+        #calculates the number of existing and potential edges
+        numberEdges = graph.number_of_edges()
+        potentialEdges = len(primarySpecies) * len(secondarySpecies) - numberEdges
+        
+        #specifies the existing degree values, the original degree distribution and sets up a list for the final distribution
+        degreeSet = list(set(secondaryDegreeSeq))
+        secondaryProbs = [secondaryDegreeSeq.count(deg)/len(secondarySpecies) for deg in degreeSet]
+        degreeDist = [0 for x in range(max(degreeSet)+falsePositives)]
+        
+        #iterates over degree values
+        for degree,degProb in zip(degreeSet,secondaryProbs):
             
+            #calculates the probabilities of specific degree values occuring with false edges
+            negativeVector = hypergeom.pmf([degree - j for j in range(degree+1)],numberEdges,degree,falseNegatives)
+            positiveVector = hypergeom.pmf([j for j in range(falsePositives+1)],potentialEdges,len(primarySpecies)-degree,falsePositives)
+            
+            #takes the convolution of the false negative and positive distributions, updating the final distribution
+            degreeDist = [c+p*degProb for c,p in zip_longest(degreeDist,np.convolve(negativeVector,positiveVector),fillvalue = 0)]
+    
+    #if no false edges are specified, simply gives the degree distribution of the original network
+    else:
+        degreeDist = [secondaryDegreeSeq.count(k)/len(secondarySpecies) for k in range(max(secondaryDegreeSeq)+1)]
+        
+    #creates an empty list to record survival probabilities
     predictSurvival = []
     
     #calculates survival probability as primary species are removed
@@ -125,47 +147,6 @@ def targeted_extinctions(graph,primarySpecies,secondarySpecies,sensitivityRatio,
         removed += 1
     
     return predictSurvival
-
-#adjusts the degree distribution to include false positives
-def false_positives(graph,primarySpecies,secondarySpecies,falseEdges):
-    
-    secondaryDegreeSeq = [graph.degree(secondary) for secondary in secondarySpecies]
-    degreeDist = [secondaryDegreeSeq.count(k)/len(secondarySpecies) for k in range(max(secondaryDegreeSeq)+1)]
-
-    #recurs a specified number of times, depending on the number of false edges
-    for e in range(falseEdges):
-        edgeAddProb = [0]
-        degree = 1
-        while degree < len(degreeDist):
-            
-            #calculates the probability of an edge being added to a secondary species of a certain degree
-            edgeAddProb.append(degreeDist[degree]*(len(primarySpecies)-degree)/(len(primarySpecies)*len(secondarySpecies)-sum(secondaryDegreeSeq)))
-            degree += 1
-            
-        #adjusts the degree distribution
-        degreeDist = [degreeDist[0]] + [degreeDist[k]-edgeAddProb[k]+edgeAddProb[k-1] for k in range(1,len(degreeDist))] + [edgeAddProb[-1]]
-
-    return degreeDist
-
-def false_negatives(graph,primarySpecies,secondarySpecies,falseEdges):
-    
-    secondaryDegreeSeq = [graph.degree(secondary) for secondary in secondarySpecies]
-    degreeDist = [secondaryDegreeSeq.count(k)/len(secondarySpecies) for k in range(max(secondaryDegreeSeq)+1)]
-
-    #recurs a specified number of times, depending on the number of false edges
-    for e in range(falseEdges):
-        edgeRemoveProb = [0]
-        degree = 1
-        while degree < len(degreeDist):
-            
-            #calculates the probability of an edge being removed from a secondary species of a certain degree
-            edgeRemoveProb.append(degreeDist[degree]*(degree/sum(secondaryDegreeSeq)))
-            degree += 1
-            
-        #adjusts the degree distribution
-        degreeDist = [degreeDist[k]-edgeRemoveProb[k]+edgeRemoveProb[k+1] for k in range(0,len(degreeDist)-1)] + [degreeDist[-1]-edgeRemoveProb[-1]]
-
-    return degreeDist
 
 #finds the ``positition'' of an ordering of indices
 def position_finder(degrees,index):
